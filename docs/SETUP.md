@@ -48,13 +48,26 @@ System user token مش بيخلص زي توكن المستخدم، ومش مرب
 
 ## 3. التنبيهات
 
-- **Telegram (الأسهل):** اعمل bot من @BotFather → `TELEGRAM_BOT_TOKEN`، وضيفه على جروب الفريق → `TELEGRAM_CHAT_ID`.
+- **Telegram (الأسهل):**
+  1. في تليجرام افتح **@BotFather** → `/newbot` → اسم البوت → هيديك **Token**.
+  2. حط التوكن في `.env`: `TELEGRAM_BOT_TOKEN=...` (متبعتوش في أي شات).
+  3. ضيف البوت على الجروب، واكتب أي رسالة في الجروب.
+  4. `python -m mbos telegram-setup` → هيطبعلك `TELEGRAM_CHAT_ID=-100...` → حطه في `.env`.
+  5. شغّل نفس الأمر تاني → هتوصل رسالة تجربة على الجروب.
 - **WhatsApp / Slack / Email:** `MBOS_WEBHOOK_URL` = Webhook في n8n. الملف `n8n/05_webhook_to_whatsapp.json` بيبعت على WhatsApp Cloud API (`WA_TOKEN`, `WA_PHONE_NUMBER_ID`, `WA_TO`). ملحوظة: الرسالة الحرة بتشتغل بس لو الرقم كلّمك في آخر 24 ساعة؛ غير كده لازم Template متوافق عليه.
 
 ## 4. الجدولة
 
 - **n8n:** Import الملفات من `n8n/`. عدّل المسار `/opt/MB`. نود Execute Command متقفلة افتراضياً في الإصدارات الجديدة من n8n (self-hosted بس) — لازم تسمح بيها في إعدادات السيرفر، أو استخدم cron.
 - **cron:** `n8n/crontab.example`.
+
+## 4.0 لحد ما السيرفر يجهز: من جهازك
+
+1. نزّل Python من python.org (علّم على **Add Python to PATH**).
+2. نزّل الريبو (Code → Download ZIP) وفكّه، وحط `config/accounts.json` و `.env` جواه.
+3. **Windows:** Task Scheduler → Create Basic Task → Daily 08:00 → Start a program → `deploy\run_daily.bat`.
+   **Mac:** `crontab -e` → `0 8 * * * /path/MB/deploy/run_daily.sh`.
+4. الجهاز لازم يكون شغال الساعة 8. تنبيهات الرصيد كل ساعة محتاجة السيرفر؛ على اللابتوب بتتشيك مرة مع التقرير اليومي.
 
 ## 4.1 الرفع على هوست
 

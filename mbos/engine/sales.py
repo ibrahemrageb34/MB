@@ -24,19 +24,52 @@ NUMS = ["orders", "revenue", "leads", "qualified_leads", "deals"]
 
 
 def load(spec):
+    """Rows from one or more sheets. Two shapes are supported:
+
+    Summary rows (our template): {"csv_url": "..."}  or  {"file": "data/sales/CODE.csv"}
+    Existing sheets, e.g. a POS export with one invoice per row and returns on other tabs:
+      {"sources": [
+         {"csv_url": "...", "columns": {"date": "التاريخ", "revenue": "اجمالي بعد الخصم"},
+          "row_is_order": true, "source": "showroom"},
+         {"csv_url": "...", "columns": {"date": "التاريخ", "revenue": "الاجمالي"}, "sign": -1}
+      ]}
+    """
     if not spec:
         return []
+    specs = spec.get("sources") or [spec]
+    if any("PUBLISH_TO_WEB" in (sp.get("csv_url") or "") for sp in specs):
+        return [{"error": "لينك الشيت لسه مش متحط — Publish to web → CSV لكل تاب"}]
+    rows = []
+    for sp in specs:
+        got = _load_one(sp)
+        if got and got[0].get("error"):
+            return got
+        rows.extend(got)
+    return rows
+
+
+def _read_text(sp):
+    if sp.get("csv_url"):
+        with urllib.request.urlopen(sp["csv_url"], timeout=30) as r:
+            return r.read().decode("utf-8-sig")
+    return (ROOT / sp["file"]).read_text(encoding="utf-8-sig")
+
+
+def _load_one(sp):
     try:
-        if spec.get("csv_url"):
-            with urllib.request.urlopen(spec["csv_url"], timeout=30) as r:
-                text = r.read().decode("utf-8-sig")
-        else:
-            text = (ROOT / spec["file"]).read_text(encoding="utf-8-sig")
+        text = _read_text(sp)
     except Exception as e:
         return [{"error": str(e)[:200]}]
+    colmap = {v.strip(): k for k, v in (sp.get("columns") or {}).items()}  # sheet header -> our field
+    sign = sp.get("sign", 1)
     rows = []
     for raw in csv.DictReader(io.StringIO(text)):
-        row = {k.strip().lower(): (v or "").strip() for k, v in raw.items() if k}
+        row = {}
+        for k, v in raw.items():
+            if not k:
+                continue
+            key = colmap.get(k.strip(), k.strip().lower())
+            row[key] = (v or "").strip()
         if not row.get("date"):
             continue
         try:
@@ -45,9 +78,13 @@ def load(spec):
             continue
         for k in NUMS:
             try:
-                row[k] = float(str(row.get(k) or 0).replace(",", ""))
+                row[k] = float(str(row.get(k) or 0).replace(",", "")) * sign
             except ValueError:
                 row[k] = 0.0
+        if sp.get("row_is_order") and row["revenue"]:
+            row["orders"] = float(sign)
+        if sp.get("source") and not row.get("source"):
+            row["source"] = sp["source"]
         rows.append(row)
     return rows
 

@@ -84,6 +84,7 @@ def _dedupe(out: Path, key: str, items: list):
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="mbos")
     sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("telegram-setup", help="find the group chat id and send a test message")
     for name in ("run", "alerts", "apply-spend-caps"):
         p = sub.add_parser(name)
         p.add_argument("--demo", action="store_true")
@@ -96,6 +97,8 @@ def main(argv=None):
     args = ap.parse_args(argv)
     load_env()
     cfg = load_cfg()
+    if args.cmd == "telegram-setup":
+        return telegram_setup(cfg)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     results, port = collect(args, cfg)
@@ -136,6 +139,31 @@ def main(argv=None):
                 api = MetaAPI(cfg, a.get("token_env"))
                 act = a["id"] if a["id"].startswith("act_") else f"act_{a['id']}"
                 print(name, api.set_spend_cap(act, cap))
+
+
+def telegram_setup(cfg):
+    """Prints the chats the bot can see (add the bot to the group and send any message there first)."""
+    import urllib.request
+    n = cfg["notifications"]
+    token = os.environ.get(n["telegram_bot_token_env"])
+    if not token:
+        sys.exit(f"Put {n['telegram_bot_token_env']}=... in the .env file first (from @BotFather).")
+    with urllib.request.urlopen(f"https://api.telegram.org/bot{token}/getUpdates", timeout=30) as r:
+        updates = json.loads(r.read()).get("result", [])
+    chats = {}
+    for u in updates:
+        msg = u.get("message") or u.get("my_chat_member") or u.get("channel_post") or {}
+        chat = msg.get("chat") or {}
+        if chat:
+            chats[chat["id"]] = chat.get("title") or chat.get("username") or chat.get("first_name")
+    if not chats:
+        print("No chats yet: add the bot to the group, send any message in the group, then run this again.")
+    for cid, title in chats.items():
+        print(f"{title}:  TELEGRAM_CHAT_ID={cid}")
+    if os.environ.get(n["telegram_chat_id_env"]):
+        from . import notify
+        notify.telegram(cfg, "✅ MB Control Room متوصّل بالجروب. التقارير والتنبيهات هتوصل هنا.")
+        print("Test message sent.")
 
 
 if __name__ == "__main__":

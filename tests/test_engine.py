@@ -145,3 +145,20 @@ class Sales(unittest.TestCase):
         self.assertEqual(s["mtd"]["cpql"], 400)
         self.assertEqual(s["last7"]["revenue"], 30000)
         self.assertEqual(s["by_source"]["showroom"]["revenue"], 90000)
+
+
+class SalesMapping(unittest.TestCase):
+    def test_pos_sheet_with_returns(self):
+        import tempfile, pathlib
+        from mbos.engine import sales
+        tmp = pathlib.Path(tempfile.mkdtemp())
+        (tmp / "s.csv").write_text("التاريخ,الرقم,اجمالي بعد الخصم\n2026-09-01,1,\"5,490\"\n2026-09-02,2,7000\n", encoding="utf-8")
+        (tmp / "r.csv").write_text("التاريخ,الاجمالي\n2026-09-03,1000\n", encoding="utf-8")
+        spec = {"sources": [
+            {"file": str(tmp / "s.csv"), "columns": {"date": "التاريخ", "revenue": "اجمالي بعد الخصم"},
+             "row_is_order": True, "source": "showroom"},
+            {"file": str(tmp / "r.csv"), "columns": {"date": "التاريخ", "revenue": "الاجمالي"}, "sign": -1}]}
+        rows = sales.load(spec)
+        self.assertEqual(sum(r["revenue"] for r in rows), 11490)
+        self.assertEqual(sum(r["orders"] for r in rows), 2)  # a return lowers revenue, not the invoice count
+        self.assertEqual(rows[0]["source"], "showroom")
