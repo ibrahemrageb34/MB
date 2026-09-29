@@ -85,6 +85,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="mbos")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("telegram-setup", help="find the group chat id and send a test message")
+    sub.add_parser("meta-check", help="check the Meta token can read every account, balance and page")
     for name in ("run", "alerts", "apply-spend-caps"):
         p = sub.add_parser(name)
         p.add_argument("--demo", action="store_true")
@@ -99,6 +100,8 @@ def main(argv=None):
     cfg = load_cfg()
     if args.cmd == "telegram-setup":
         return telegram_setup(cfg)
+    if args.cmd == "meta-check":
+        return meta_check(cfg)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     results, port = collect(args, cfg)
@@ -139,6 +142,32 @@ def main(argv=None):
                 api = MetaAPI(cfg, a.get("token_env"))
                 act = a["id"] if a["id"].startswith("act_") else f"act_{a['id']}"
                 print(name, api.set_spend_cap(act, cap))
+
+
+def meta_check(cfg):
+    """One line per account: can the token read it, its balance, and its page? Prints no secrets."""
+    from .connectors.meta import MetaAPI
+    for a in load_accounts(False):
+        env = a.get("token_env") or cfg["meta"]["access_token_env"]
+        label = f"[{a.get('code')}] {a['name']}"
+        if not os.environ.get(env):
+            print(f"✗ {label}: {env} فاضي في .env")
+            continue
+        api = MetaAPI(cfg, env)
+        act = a["id"] if a["id"].startswith("act_") else f"act_{a['id']}"
+        try:
+            info = api.account_info(act, a)
+            bal = info["balance_available"]
+            bal_txt = f"{bal:,.0f} {info['currency']}" if bal is not None else "مش ظاهر (محتاج صلاحية Billing أو manual_balance)"
+            print(f"✓ {label}: متوصّل · مسبق الدفع={info['is_prepay']} · الرصيد {bal_txt}")
+        except RuntimeError as e:
+            print(f"✗ {label}: {str(e)[:160]}")
+            continue
+        try:
+            page_id, ig = api.resolve_page(a)
+            print(f"    الصفحة: {'✓' if page_id else '✗'}  إنستجرام: {'✓' if ig else '✗'}")
+        except RuntimeError as e:
+            print(f"    الصفحة: ✗ {str(e)[:120]}")
 
 
 def telegram_setup(cfg):
