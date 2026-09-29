@@ -1,0 +1,6 @@
+# Alternative to n8n: plain cron on any Linux server (Cairo time).
+CRON_TZ=Africa/Cairo
+0 8 * * *          cd /opt/MB && python3 -m mbos run >> output/cron.log 2>&1
+5 * * * *          cd /opt/MB && python3 -m mbos alerts --kind prepaid >> output/cron.log 2>&1
+*/30 8-23 * * *    cd /opt/MB && python3 -m mbos alerts --kind posts >> output/cron.log 2>&1
+0 11,15,19 * * *   cd /opt/MB && python3 -m mbos alerts --kind anomaly >> output/cron.log 2>&1

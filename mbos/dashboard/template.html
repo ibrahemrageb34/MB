@@ -1,0 +1,378 @@
+<title>MB Control Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Readex+Pro:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky control bar + tabbed panes; summary tiles first, detail tables below. Ink-on-paper neutrals with a cobalt signal. */
+:root{
+  --bg:#f4f6f9; --panel:#ffffff; --panel-2:#eef1f6; --line:#dbe0e8; --ink:#141a24; --ink-2:#4a5466; --ink-3:#7a8497;
+  --accent:#2f55d4; --accent-soft:#e3e9fb;
+  --good:#16804f; --good-soft:#e1f3e9; --warn:#a96a00; --warn-soft:#fbf0d9; --crit:#c8332f; --crit-soft:#fbe3e2;
+  --debt:#6d2aa6; --debt-soft:#efe3f8;
+  --s1:#2a78d6; --s2:#eb6834;
+  --f-display:"Readex Pro","IBM Plex Sans Arabic",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans Arabic","Segoe UI",Tahoma,system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f131a; --panel:#171c25; --panel-2:#1e2430; --line:#2b3342; --ink:#eef1f6; --ink-2:#b3bccb; --ink-3:#8590a3;
+  --accent:#7d9bff; --accent-soft:#1f2a4a;
+  --good:#4cc38a; --good-soft:#15301f; --warn:#e3a52f; --warn-soft:#33280f; --crit:#f07370; --crit-soft:#3a1818;
+  --debt:#c08cf0; --debt-soft:#2c1c3d; --s1:#3987e5; --s2:#d95926; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f131a; --panel:#171c25; --panel-2:#1e2430; --line:#2b3342; --ink:#eef1f6; --ink-2:#b3bccb; --ink-3:#8590a3;
+  --accent:#7d9bff; --accent-soft:#1f2a4a;
+  --good:#4cc38a; --good-soft:#15301f; --warn:#e3a52f; --warn-soft:#33280f; --crit:#f07370; --crit-soft:#3a1818;
+  --debt:#c08cf0; --debt-soft:#2c1c3d; --s1:#3987e5; --s2:#d95926; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55}
+#app{padding-inline:16px;padding-block:0 48px;max-width:1280px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;font-weight:600}
+h2{font-size:18px} h3{font-size:15px}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+.muted{color:var(--ink-2)} .faint{color:var(--ink-3)}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);
+  margin-inline:-16px;padding:12px 16px 0}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand h1{font-size:20px;letter-spacing:.2px}
+.brand .meta{font-size:12px;color:var(--ink-3)}
+.demo{background:var(--warn-soft);color:var(--warn);font-size:12px;padding:2px 8px;border-radius:99px;font-weight:600}
+.tabs{display:flex;gap:2px;overflow-x:auto;margin-top:10px;scrollbar-width:none}
+.tabs button{all:unset;cursor:pointer;padding:9px 12px;font-weight:500;color:var(--ink-2);border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.tabs button:focus-visible,.chip:focus-visible,.card.click:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+section.pane{display:grid;gap:18px;padding-top:18px}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
+@media (max-width:480px){.g2,.g3{grid-template-columns:1fr}.tile .value{font-size:20px}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;min-width:0}
+.card.click{cursor:pointer;transition:border-color .15s}
+.card.click:hover{border-color:var(--accent)}
+.tile .label{font-size:12px;color:var(--ink-2);letter-spacing:.3px}
+.tile .value{font-family:var(--f-mono);font-size:24px;font-weight:500;margin-top:4px;direction:ltr;text-align:right}
+.tile .sub{font-size:12px;color:var(--ink-3);margin-top:2px}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.good{color:var(--good);background:var(--good-soft)} .warning{color:var(--warn);background:var(--warn-soft)}
+.critical{color:var(--crit);background:var(--crit-soft)} .debt{color:var(--debt);background:var(--debt-soft)}
+.ok{color:var(--good);background:var(--good-soft)} .unknown{color:var(--ink-2);background:var(--panel-2)}
+.P0{color:var(--crit);background:var(--crit-soft)} .P1{color:var(--warn);background:var(--warn-soft)}
+.P2{color:var(--accent);background:var(--accent-soft)} .P3{color:var(--ink-2);background:var(--panel-2)}
+.stripe{border-inline-start:3px solid var(--line)}
+.card.stripe,.list li.stripe{background:var(--panel);color:var(--ink)}
+.stripe.critical,.stripe.P0,.stripe.debt{border-inline-start-color:var(--crit)} .stripe.warning,.stripe.P1{border-inline-start-color:var(--warn)}
+.stripe.good,.stripe.ok{border-inline-start-color:var(--good)}
+.acct-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.score{font-family:var(--f-mono);font-size:26px;font-weight:500;line-height:1}
+.meter{height:6px;background:var(--panel-2);border-radius:99px;overflow:hidden;margin-top:6px}
+.meter i{display:block;height:100%;border-radius:99px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin-top:10px}
+.kv dt{color:var(--ink-2)} .kv dd{margin:0;text-align:left}
+.list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.list li{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:8px 10px;text-align:start;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:500;color:var(--ink-2);font-size:12px;background:var(--panel-2);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{all:unset;cursor:pointer;padding:5px 11px;border:1px solid var(--line);border-radius:99px;font-size:13px;background:var(--panel)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:4px 8px;border-radius:6px;white-space:nowrap;transform:translate(-50%,-110%)}
+.section-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.section-h p{margin:0;font-size:13px;color:var(--ink-3)}
+.runway{position:relative;height:10px;background:var(--panel-2);border-radius:99px;min-width:120px}
+.runway i{position:absolute;inset-block:0;inset-inline-start:0;border-radius:99px}
+.runway b{position:absolute;inset-block:-3px;width:2px;background:var(--ink-3)}
+.post{display:grid;gap:8px}
+.post .cap{font-size:13px}
+.why{font-size:12px;color:var(--ink-2);margin:0;padding-inline-start:18px}
+.how{font-size:13px;background:var(--panel-2);border-radius:8px;padding:8px 10px}
+.board{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.col h3{font-size:13px;color:var(--ink-2);margin-bottom:8px}
+.phase{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start}
+.dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);margin-top:3px;background:var(--panel)}
+.dot.done{background:var(--good);border-color:var(--good)} .dot.active{background:var(--accent);border-color:var(--accent)}
+.tl{list-style:none;margin:0;padding:0;border-inline-start:2px solid var(--line);display:grid;gap:10px}
+.tl li{position:relative;padding-inline-start:14px}
+.tl li::before{content:"";position:absolute;inset-inline-start:-6px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--ink-3)}
+.tl li.positive::before{background:var(--good)} .tl li.negative::before{background:var(--crit)}
+.tl .d{font-family:var(--f-mono);font-size:12px;color:var(--ink-3);direction:ltr;display:inline-block}
+.note{font-size:13px;background:var(--accent-soft);border-radius:8px;padding:10px 12px}
+.empty{color:var(--ink-3);font-size:13px;padding:8px 0}
+label.done{display:flex;gap:6px;align-items:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<div id="app" dir="rtl" lang="ar">
+  <div class="bar">
+    <div class="brand"><h1>MB Control Room</h1><span class="meta" id="asof"></span><span id="demo"></span></div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+  <main id="panes"></main>
+</div>
+<script>
+const DATA = /*__DATA__*/null;
+document.documentElement.setAttribute("dir","rtl");
+const A = DATA.accounts, P = DATA.portfolio;
+const $ = (s, el=document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const nf = (x, d=0) => x == null || isNaN(x) ? "—" : Number(x).toLocaleString("en-US",{maximumFractionDigits:d,minimumFractionDigits:d});
+const money = (x, c="EGP") => x == null ? "—" : `${nf(x)} ${c}`;
+const pct = (x, d=1) => x == null ? "—" : `${(x*100).toFixed(d)}%`;
+const chg = (a,b) => (a==null||!b) ? null : (a-b)/b;
+const signed = x => x == null ? "—" : `${x>0?"+":""}${(x*100).toFixed(0)}%`;
+const RL = {purchase:"طلب", lead:"ليد", message:"محادثة"};
+const ST = {good:"سليم", warning:"مراقبة", critical:"تدخل", ok:"آمن", debt:"مديونية", unknown:"غير معروف"};
+const VERD = {promote:["يستحق إعلان","good"], test:["اختبار صغير","warning"], skip:["عضوي فقط","unknown"], wait:["انتظار داتا","unknown"]};
+const TSTAT = {running:"شغال", winner:"كسب", loser:"خسر", inconclusive:"غير حاسم", not_started:"لم يبدأ", closed:"مقفول"};
+const ROLE = {media_buyer:"Media Buyer", creative:"Creative", tracking:"Tracking", finance:"Finance", account_manager:"Account Mgr"};
+let cur = 0;
+const store = {get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+               set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+$("#asof").textContent = `بيانات حتى ${A[0].as_of} · ${A.length} أكونتات · Meta`;
+if (DATA.demo) $("#demo").innerHTML = `<span class="demo">بيانات تجريبية</span>`;
+
+const TABS = [["cmd","القيادة"],["acct","الأكونت"],["wallet","المحفظة"],["creative","الكريتيف"],["tests","الاختبارات"],["ceo","CEO"],["team","الفريق"],["road","Roadmap"]];
+$("#tabs").innerHTML = TABS.map(([k,l]) => `<button role="tab" data-t="${k}" aria-selected="false">${l}</button>`).join("");
+$("#panes").innerHTML = TABS.map(([k]) => `<section class="pane" id="p-${k}" hidden></section>`).join("");
+function show(t){
+  TABS.forEach(([k]) => { $(`#p-${k}`).hidden = k !== t; $(`[data-t="${k}"]`).setAttribute("aria-selected", k===t); });
+  store.set("mb_tab", t); render[t]();
+}
+$("#tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) show(b.dataset.t); });
+
+function acctChips(id, onPick){
+  return `<div class="chips" id="${id}">${A.map((a,i)=>`<button class="chip" data-i="${i}" aria-pressed="${i===cur}">${esc(a.name)}</button>`).join("")}</div>`;
+}
+function wireChips(id, fn){ $("#"+id).addEventListener("click", e => { const b=e.target.closest(".chip"); if(!b) return; cur=+b.dataset.i; store.set("mb_acct",cur); fn(); }); }
+
+/* ---------- charts ---------- */
+function spark(vals, target){
+  const W=220,H=44,p=3, v=vals.map(x=>x??null), ok=v.filter(x=>x!=null);
+  if (ok.length<2) return "";
+  const hi=Math.max(...ok, target||0)*1.08, lo=0;
+  const X=i=>p+i*(W-2*p)/(v.length-1), Y=y=>H-p-(y-lo)/(hi-lo)*(H-2*p);
+  let d="",started=false; v.forEach((y,i)=>{ if(y==null) return; d+=(started?"L":"M")+X(i).toFixed(1)+","+Y(y).toFixed(1); started=true; });
+  const li=v.map((y,i)=>y==null?-1:i).filter(i=>i>=0).pop();
+  const t = target ? `<line x1="0" x2="${W}" y1="${Y(target)}" y2="${Y(target)}" stroke="var(--ink-3)" stroke-dasharray="3 3" stroke-width="1"/>` : "";
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="CPR آخر 30 يوم">${t}<path d="${d}" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round"/><circle cx="${X(li)}" cy="${Y(v[li])}" r="3" fill="var(--s1)"/></svg>`;
+}
+function lineChart(el, dates, vals, target, label, color="var(--s1)", bars=false){
+  const W=560,H=190,l=46,r=10,t=12,b=26;
+  const ok=vals.filter(x=>x!=null); if(!ok.length){ el.innerHTML='<p class="empty">لا توجد بيانات</p>'; return; }
+  const hi=Math.max(...ok,target||0)*1.12;
+  const n=vals.length, X=i=>l+(n===1?0:i*(W-l-r)/(n-1)), Y=y=>t+(1-y/hi)*(H-t-b);
+  const ticks=[0,hi/2,hi].map(v=>`<line x1="${l}" x2="${W-r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${l-6}" y="${Y(v)+4}" text-anchor="end" font-size="10" fill="var(--ink-3)" font-family="IBM Plex Mono">${nf(v)}</text>`).join("");
+  const xl=[0,Math.floor(n/2),n-1].map(i=>`<text x="${X(i)}" y="${H-6}" text-anchor="middle" font-size="10" fill="var(--ink-3)" font-family="IBM Plex Mono">${dates[i].slice(5)}</text>`).join("");
+  let marks="";
+  if (bars){ const bw=Math.max(3,(W-l-r)/n-4);
+    marks=vals.map((v,i)=>v==null?"":`<rect x="${X(i)-bw/2}" y="${Y(v)}" width="${bw}" height="${Math.max(0,Y(0)-Y(v))}" rx="2" fill="${color}"/>`).join("");
+  } else { let d="",s=false; vals.forEach((v,i)=>{ if(v==null) return; d+=(s?"L":"M")+X(i)+","+Y(v); s=true; });
+    let area=d?`${d}L${X(n-1)},${Y(0)}L${X(0)},${Y(0)}Z`:"";
+    marks=`<path d="${area}" fill="${color}" opacity=".08"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>`; }
+  const tl = target ? `<line x1="${l}" x2="${W-r}" y1="${Y(target)}" y2="${Y(target)}" stroke="var(--crit)" stroke-dasharray="4 4"/><text x="${W-r}" y="${Y(target)-4}" text-anchor="end" font-size="10" fill="var(--crit)">التارجت ${nf(target)}</text>` : "";
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}" direction="ltr">${ticks}${xl}${marks}${tl}<line class="cx" y1="${t}" y2="${H-b}" stroke="var(--ink-3)" opacity="0"/><rect x="${l}" y="${t}" width="${W-l-r}" height="${H-t-b}" fill="transparent" class="hit"/></svg><div class="tip" hidden></div>`;
+  const svg=$("svg",el), tip=$(".tip",el), cx=$(".cx",el);
+  $(".hit",el).addEventListener("mousemove", e => {
+    const bb=svg.getBoundingClientRect(), sx=(e.clientX-bb.left)*W/bb.width;
+    const i=Math.max(0,Math.min(n-1,Math.round((sx-l)/((W-l-r)/(n-1||1)))));
+    cx.setAttribute("x1",X(i)); cx.setAttribute("x2",X(i)); cx.setAttribute("opacity",".6");
+    tip.hidden=false; tip.style.left=(X(i)*bb.width/W)+"px"; tip.style.top=(Y(vals[i]??0)*bb.height/H)+"px";
+    tip.textContent=`${dates[i]} · ${label}: ${nf(vals[i])}`;
+  });
+  $(".hit",el).addEventListener("mouseleave", ()=>{ tip.hidden=true; cx.setAttribute("opacity","0"); });
+}
+const meterColor = s => s>=75?"var(--good)":s>=50?"var(--warn)":"var(--crit)";
+const walletPill = w => `<span class="pill ${w.status}">${w.status==="debt"?"⛔ ":""}${ST[w.status]||w.status}${w.runway_days!=null&&w.status!=="debt"?` · <span class="num">${w.runway_days.toFixed(1)}</span> يوم`:""}</span>`;
+
+/* ---------- panes ---------- */
+const render = {
+cmd(){
+  const need = P.treasury.total_need_next_7d, crit = P.health.filter(h=>h.status==="critical").length;
+  $("#p-cmd").innerHTML = `
+  <div class="grid g4">
+    <div class="card tile"><div class="label">الصرف · آخر 7 أيام</div><div class="value">${money(P.spend7)}</div><div class="sub">كل الأكونتات</div></div>
+    <div class="card tile"><div class="label">إيراد منسوب لميتا · 7 أيام</div><div class="value">${money(P.revenue7)}</div><div class="sub">ROAS مجمّع <span class="num">${nf(P.revenue7/P.spend7,2)}</span> (أكونتات البيع فقط)</div></div>
+    <div class="card tile"><div class="label">أكونتات محتاجة تدخل</div><div class="value">${crit} / ${A.length}</div><div class="sub">Health score أقل من 50</div></div>
+    <div class="card tile"><div class="label">شحن مطلوب · 7 أيام</div><div class="value">${money(need)}</div><div class="sub">عشان مفيش أكونت يقف أو يدخل مديونية</div></div>
+  </div>
+  <div class="section-h"><h2>P0 — قبل أي حاجة</h2><p>${P.p0.length} بند</p></div>
+  ${P.p0.length?`<ul class="list">${P.p0.map(a=>`<li class="stripe P0"><div class="row"><b>${esc(a.account)}</b><span class="muted">${esc(a.title)}</span><span class="spacer"></span><span class="pill P0">${esc(a.owner)}</span></div><div class="faint" style="font-size:13px;margin-top:4px">${esc(a.how)}</div></li>`).join("")}</ul>`:`<p class="empty">مفيش P0 النهارده.</p>`}
+  <div class="section-h"><h2>الأكونتات</h2><p>مرتبة من الأضعف · اضغط على الكارت للتفاصيل · الخط المتقطع = التارجت CPA</p></div>
+  <div class="grid g3">${[...A].map((a,i)=>[a,i]).sort((x,y)=>x[0].health.score-y[0].health.score).map(([a,i])=>{
+    const k=a.kpi.last7, p=a.kpi.prev7, tr=Object.entries(a.trend);
+    const top=a.actions[0];
+    return `<div class="card click stripe ${a.health.status}" tabindex="0" data-i="${i}">
+      <div class="acct-head"><div><h3>${esc(a.name)}</h3><div class="faint" style="font-size:12px">${esc(a.business.vertical||"")} · ${RL[a.business.objective]}</div></div>
+      <div style="text-align:left"><div class="score" style="color:${meterColor(a.health.score)}">${a.health.score}</div><div class="faint" style="font-size:11px">Health</div></div></div>
+      <div class="meter"><i style="width:${a.health.score}%;background:${meterColor(a.health.score)}"></i></div>
+      <dl class="kv"><dt>CPR · 7 أيام</dt><dd class="num">${money(k.cpr,a.currency)} <span class="faint">(${signed(chg(k.cpr,p.cpr))})</span></dd>
+      <dt>التارجت</dt><dd class="num">${money(a.business.target_cpa,a.currency)}</dd>
+      <dt>${RL[a.business.objective]} · 7 أيام</dt><dd class="num">${nf(k.results)}</dd>
+      <dt>الرصيد</dt><dd>${walletPill(a.prepaid)}</dd></dl>
+      <div style="margin-top:8px">${spark(tr.map(([,v])=>v.cpr), a.business.target_cpa)}</div>
+      ${top?`<div class="how" style="margin-top:8px"><span class="pill ${top.priority}">${top.priority}</span> ${esc(top.title)}</div>`:""}
+    </div>`}).join("")}</div>`;
+  $("#p-cmd").querySelectorAll(".card.click").forEach(c=>{ const go=()=>{cur=+c.dataset.i; show("acct");}; c.onclick=go; c.onkeydown=e=>{if(e.key==="Enter")go();}; });
+},
+acct(){
+  const a=A[cur], k=a.kpi.last7, p=a.kpi.prev7, y=a.kpi.yesterday, c=a.currency, fc=a.forecast, pc=a.pacing;
+  const tr=Object.entries(a.trend), dates=tr.map(([d])=>d);
+  const kpis=[["الصرف",money(k.spend,c),chg(k.spend,p.spend)],["النتائج",nf(k.results),chg(k.results,p.results)],["CPR",money(k.cpr,c),chg(k.cpr,p.cpr)],
+    ["CTR",pct(k.ctr,2),chg(k.ctr,p.ctr)],["CPM",money(k.cpm,c),chg(k.cpm,p.cpm)],["CVR",pct(k.cvr,2),chg(k.cvr,p.cvr)]];
+  if (k.roas) kpis.push(["ROAS",nf(k.roas,2),chg(k.roas,p.roas)]);
+  $("#p-acct").innerHTML = `${acctChips("ac")}
+  <div class="row"><h2>${esc(a.name)}</h2><span class="pill ${a.health.status}">${ST[a.health.status]} · ${a.health.score}</span>${walletPill(a.prepaid)}<span class="spacer"></span><span class="faint">${esc(a.owner||"")}</span></div>
+  <div class="grid g4">${kpis.map(([l,v,ch])=>`<div class="card tile"><div class="label">${l} · 7 أيام</div><div class="value">${v}</div><div class="sub">مقابل الأسبوع اللي قبله <span class="num">${signed(ch)}</span></div></div>`).join("")}</div>
+  <div class="grid g2">
+    <div class="card"><h3>CPR يومي · 30 يوم</h3><div class="chart" id="ch-cpr"></div></div>
+    <div class="card"><h3>الصرف اليومي · 30 يوم</h3><div class="chart" id="ch-spend"></div></div>
+  </div>
+  <div class="section-h"><h2>القرارات</h2><p>مرتبة بالأولوية ثم Impact × Confidence ÷ Effort</p></div>
+  ${actionsTable(a.actions)}
+  <div class="grid g2">
+    <div><div class="section-h"><h2>Anomalies</h2><p>امبارح مقابل متوسط 7 أيام</p></div>
+      ${a.anomalies.length?`<ul class="list">${a.anomalies.map(x=>`<li class="stripe ${x.severity}"><div class="row"><b>${esc(x.metric_ar)}</b><span class="muted">${esc(x.entity)}</span><span class="spacer"></span><span class="num">${signed(x.change)}</span></div><div class="faint" style="font-size:13px">${esc(x.hint)}</div></li>`).join("")}</ul>`:`<p class="empty">مفيش حاجة غير طبيعية امبارح.</p>`}</div>
+    <div><div class="section-h"><h2>Campaign QA</h2><p>${a.qa.length} ملاحظة</p></div>
+      ${a.qa.length?`<ul class="list">${a.qa.map(x=>`<li class="stripe ${x.priority}"><div class="row"><span class="pill ${x.priority}">${x.priority}</span><b>${esc(x.title)}</b></div><div class="faint" style="font-size:13px">${esc(x.entity)} — ${esc(x.why)}</div></li>`).join("")}</ul>`:`<p class="empty">الـ QA نضيف.</p>`}</div>
+  </div>
+  <div class="section-h"><h2>Budget Allocation</h2><p>داخل الأكونت فقط · السكيل بيتوقف لو الرصيد مش كفاية</p></div>
+  <div class="tbl"><table><thead><tr><th>الكامبين / Ad set</th><th>القرار</th><th>الحالي</th><th>المقترح</th><th>CPR 7 أيام</th><th>CPR 3 أيام</th><th>النتائج</th><th>السبب</th></tr></thead><tbody>
+  ${a.budget.map(b=>`<tr><td>${esc(b.name)}</td><td><span class="pill ${b.action==="scale"?"good":b.action==="cut"?"critical":"unknown"}">${{scale:"زيادة",cut:"تقليل",hold:"ثبات"}[b.action]}</span></td><td class="n">${nf(b.current)}</td><td class="n">${nf(b.recommended)}</td><td class="n">${nf(b.cpr7)}</td><td class="n">${nf(b.cpr3)}</td><td class="n">${nf(b.results7)}</td><td>${esc(b.why)}</td></tr>`).join("")}
+  </tbody></table></div>
+  <div class="grid g2">
+    <div class="card"><h3>Pacing الشهر</h3><dl class="kv"><dt>صرف الشهر لحد دلوقتي</dt><dd class="num">${money(pc.mtd_spend,c)}</dd><dt>المفروض يكون</dt><dd class="num">${money(pc.expected_mtd,c)}</dd><dt>Pace</dt><dd class="num">${pc.pace?nf(pc.pace*100)+"%":"—"}</dd><dt>يومي عشان توصل للميزانية</dt><dd class="num">${money(pc.daily_to_hit_budget,c)}</dd></dl></div>
+    <div class="card"><h3>Forecast نهاية الشهر</h3><dl class="kv"><dt>الصرف</dt><dd class="num">${money(fc.month_end_spend,c)}</dd><dt>النتائج</dt><dd class="num">${nf(fc.month_end_results)}</dd><dt>CPR</dt><dd class="num">${money(fc.month_end_cpr,c)}</dd><dt>اتجاه CPR أسبوعياً</dt><dd class="num">${signed(fc.cpr_weekly_trend)}</dd><dt>صرف الـ 7 أيام الجاية</dt><dd class="num">${money(fc.next7_spend,c)}</dd></dl><p class="faint" style="font-size:12px;margin:8px 0 0">${esc(fc.note)}</p></div>
+  </div>
+  <div class="section-h"><h2>الإعلانات · 14 يوم</h2><p>أعلى صرف أولاً</p></div>
+  ${creativeTable(a)}`;
+  wireChips("ac", render.acct);
+  lineChart($("#ch-cpr"), dates, tr.map(([,v])=>v.cpr), a.business.target_cpa, "CPR");
+  lineChart($("#ch-spend"), dates, tr.map(([,v])=>v.spend), null, "الصرف", "var(--s1)", true);
+},
+wallet(){
+  const rows=A.map(a=>({a,w:a.prepaid})).sort((x,y)=>(x.w.runway_days??99)-(y.w.runway_days??99));
+  const max=14;
+  $("#p-wallet").innerHTML = `
+  <div class="note">الحسابات مسبقة الدفع بتدخل مديونية لأن ميتا بتحاسب على التوصيل بتأخير والميزانية اليومية هدف مش حد. الحل على 3 طبقات: <b>(1)</b> تنبيه قبل ما الرصيد يخلص بيوم (lead time) · <b>(2)</b> Spending limit على الأكونت = المصروف + الرصيد − نص يوم صرف · <b>(3)</b> السكيل ممنوع أوتوماتيك لو الرصيد أقل من 3 أيام.</div>
+  <div class="grid g4">
+    <div class="card tile"><div class="label">شحن مطلوب · 7 أيام</div><div class="value">${money(P.treasury.total_need_next_7d)}</div></div>
+    <div class="card tile"><div class="label">عليهم مديونية</div><div class="value">${rows.filter(r=>r.w.status==="debt").length}</div></div>
+    <div class="card tile"><div class="label">أقل من يوم ونص</div><div class="value">${rows.filter(r=>r.w.status==="critical").length}</div></div>
+    <div class="card tile"><div class="label">أقل من 3 أيام</div><div class="value">${rows.filter(r=>r.w.status==="warning").length}</div></div>
+  </div>
+  <div class="tbl"><table><thead><tr><th>الأكونت</th><th>الحالة</th><th>الرصيد المتاح</th><th>الحرق اليومي</th><th>Runway (0–14 يوم)</th><th>شحن مقترح</th><th>اشحن قبل</th><th>Spending limit مقترح</th></tr></thead><tbody>
+  ${rows.map(({a,w})=>{ const rd=Math.max(0,Math.min(max,w.runway_days??0)); const col=w.status==="ok"?"var(--good)":w.status==="warning"?"var(--warn)":"var(--crit)";
+    return `<tr><td><b>${esc(a.name)}</b><div class="faint" style="font-size:12px">${esc(w.message)}</div></td><td>${walletPill(w)}</td><td class="n">${money(w.balance,a.currency)}</td><td class="n">${money(w.burn_rate,a.currency)}</td>
+    <td><div class="runway" title="${nf(w.runway_days,1)} يوم"><i style="width:${rd/max*100}%;background:${col}"></i><b style="inset-inline-start:${3/max*100}%"></b></div><div class="faint num" style="font-size:11px">${nf(w.runway_days,1)} يوم</div></td>
+    <td class="n">${money(w.topup_recommended,a.currency)}</td><td class="n">${w.topup_now?'<span class="pill critical">فوراً</span>':esc(w.topup_by||"—")}</td><td class="n">${money(w.spend_cap_recommended,a.currency)}</td></tr>`}).join("")}
+  </tbody></table></div>
+  <p class="faint" style="font-size:12px">الخط الرمادي في الـ Runway = حد التحذير (3 أيام). الـ Spending limit في ميتا تراكمي (إجمالي الصرف مدى الحياة)، عشان كده الرقم المقترح = المصروف لحد دلوقتي + الرصيد − نص يوم. الحرق اليومي = الأعلى بين متوسط صرف آخر 3 أيام ومجموع الميزانيات اليومية الشغالة. تطبيق الـ Spending limit: <span class="num">python -m mbos apply-spend-caps --yes</span></p>`;
+},
+creative(){
+  const a=A[cur], ins=a.creative_insights;
+  const dimT=(rows,title)=>{ const mx=Math.max(...rows.map(r=>r.cpr||0),1);
+    return `<div class="card"><h3>${title}</h3><div class="tbl" style="border:0;margin-top:8px"><table><thead><tr><th>القيمة</th><th>CPR</th><th>من الصرف</th><th>Win rate</th><th>Hook</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.value)}</td><td class="n"><div class="row" style="gap:6px;flex-wrap:nowrap"><span style="display:inline-block;height:6px;border-radius:0 3px 3px 0;background:${r.cpr!=null&&r.cpr<=a.business.target_cpa?"var(--good)":"var(--s1)"};width:${r.cpr?Math.max(4,r.cpr/mx*70):0}px"></span>${nf(r.cpr)}</div></td><td class="n">${pct(r.spend_share,0)}</td><td class="n">${pct(r.win_rate,0)}</td><td class="n">${pct(r.hook_rate,0)}</td></tr>`).join("")}</tbody></table></div></div>`; };
+  $("#p-creative").innerHTML = `${acctChips("cc")}
+  <div class="section-h"><h2>Inbox — بوستات وكريتيف جديد</h2><p>آخر 48 ساعة · تقييم تلقائي + قرار: إعلان في كامبين موجودة / اختبار / عضوي فقط</p></div>
+  ${a.posts.length?`<div class="grid g3">${a.posts.map(p=>{const [vl,vc]=VERD[p.verdict]; return `<div class="card post stripe ${vc}">
+    <div class="row"><span class="pill ${vc}">${vl}</span><span class="faint" style="font-size:12px">${esc(p.platform)} · ${esc(p.type)} · منذ ${p.age_h} ساعة</span><span class="spacer"></span><span class="score" style="font-size:20px">${p.score}</span></div>
+    <div class="cap">${esc(p.caption)}</div>
+    <div class="row"><span class="pill unknown">زاوية: ${esc(p.angle)}</span><span class="pill unknown">وصول <span class="num">${nf(p.reach)}</span></span></div>
+    <ul class="why">${p.why.map(w=>`<li>${esc(w)}</li>`).join("")}</ul>
+    <div class="how">${esc(p.how)}</div>
+    ${p.ai&&!p.ai.error?`<div class="faint" style="font-size:12px">AI: ${esc(p.ai.why||"")} — ${esc(p.ai.improve||"")}</div>`:""}
+  </div>`}).join("")}</div>`:`<p class="empty">مفيش بوستات جديدة.</p>`}
+  <div class="section-h"><h2>Insights للفريق الإبداعي</h2></div>
+  ${ins.notes.length?`<ul class="list">${ins.notes.map(n=>`<li>${esc(n.text)}</li>`).join("")}</ul>`:`<p class="empty">مفيش داتا كفاية لاستنتاج واضح.</p>`}
+  <div class="grid g3">${dimT(ins.dimensions.angle,"حسب الزاوية (Angle)")}${dimT(ins.dimensions.format,"حسب الفورمات (Format)")}${dimT(ins.dimensions.hook,"حسب الهوك (Hook)")}</div>
+  <div class="grid g2">
+    <div><div class="section-h"><h2>إرهاق الكريتيف</h2></div>${a.fatigue.length?`<ul class="list">${a.fatigue.map(f=>`<li class="stripe warning"><b>${esc(f.name)}</b><div class="faint" style="font-size:13px">${esc(f.reason)}</div></li>`).join("")}</ul>`:`<p class="empty">مفيش إعلانات مرهقة.</p>`}</div>
+    <div><div class="section-h"><h2>أفكار اختبارات</h2><p>فرضيات مبنية على داتا الأكونت</p></div>${a.ideas.length?`<ul class="list">${a.ideas.map(i=>`<li><b>${esc(i.title)}</b><div class="faint" style="font-size:13px">${esc(i.hypothesis)}</div><div class="row" style="margin-top:4px"><span class="pill P2">المتغير: ${esc(i.variable)}</span><span class="pill unknown">${esc(i.budget)}</span></div></li>`).join("")}</ul>`:`<p class="empty">—</p>`}</div>
+  </div>
+  ${a.competitors?`<div class="section-h"><h2>المنافسين</h2><p>من Ad Library · مدة تشغيل الإعلان مؤشر على ربحيته مش دليل</p></div>
+  <div class="grid g2"><ul class="list">${a.competitors.notes.map(n=>`<li>${esc(n)}</li>`).join("")}</ul>
+  <div class="tbl"><table><thead><tr><th>الصفحة</th><th>أيام</th><th>الزاوية</th><th>النص</th></tr></thead><tbody>${a.competitors.long_runners.map(w=>`<tr><td>${esc(w.page)}</td><td class="n">${w.days}</td><td>${esc(w.angle)}</td><td>${esc(w.text)}</td></tr>`).join("")}</tbody></table></div></div>`:""}`;
+  wireChips("cc", render.creative);
+},
+tests(){
+  const a=A[cur], cols=["running","winner","loser","inconclusive","not_started"];
+  $("#p-tests").innerHTML = `${acctChips("tc")}
+  <div class="note">كل اختبار: فرضية واحدة · متغير واحد · معايير نجاح وفشل متحددة <b>قبل</b> الإطلاق. الإعلانات بتترِبط بالاختبار بـ <span class="num">T:&lt;id&gt;</span> في اسم الإعلان.</div>
+  <div class="board">${cols.map(s=>{const ts=a.tests.filter(t=>t.status===s); return `<div class="col"><h3>${TSTAT[s]} · ${ts.length}</h3>${ts.map(t=>`<div class="card stripe ${s==="winner"?"good":s==="loser"?"critical":"warning"}" style="margin-bottom:8px">
+    <div class="row"><b class="num">${esc(t.id)}</b><span class="pill P2">${esc(t.variable)}</span><span class="spacer"></span><span class="faint">يوم ${t.days}</span></div>
+    <p style="margin:6px 0;font-size:13px">${esc(t.hypothesis)}</p>
+    <dl class="kv"><dt>صرف</dt><dd class="num">${money(t.spend,a.currency)}</dd><dt>نتائج</dt><dd class="num">${nf(t.results)}</dd><dt>CPR</dt><dd class="num">${money(t.cpr,a.currency)}</dd><dt>نجاح لو</dt><dd>${esc(t.success)}</dd><dt>فشل لو</dt><dd>${esc(t.failure)}</dd></dl>
+    ${t.variants.length?`<div class="tbl" style="margin-top:8px"><table><thead><tr><th>Variant</th><th>CPR</th><th>الحكم</th></tr></thead><tbody>${t.variants.map(v=>`<tr><td style="font-size:12px">${esc(v.name)}</td><td class="n">${nf(v.cpr)}</td><td>${{winner:"كسب",loser:"خسر",learning:"بيتعلم"}[v.verdict]}</td></tr>`).join("")}</tbody></table></div>`:""}
+    <div class="how" style="margin-top:8px">${esc(t.next)}</div></div>`).join("")||`<p class="empty">—</p>`}</div>`}).join("")}</div>`;
+  wireChips("tc", render.tests);
+},
+ceo(){
+  const acts=A.flatMap(a=>a.actions).sort((x,y)=>x.priority.localeCompare(y.priority)||y.ice-x.ice);
+  const decisions=[...P.treasury.rows.filter(t=>["debt","critical","warning"].includes(t.status)).map(t=>`اعتماد شحن <b class="num">${money(t.need_next_7d,t.currency)}</b> لـ ${esc(t.account)} قبل <span class="num">${esc(t.topup_by)}</span>`),
+    ...A.flatMap(a=>a.budget.filter(b=>b.action==="scale").map(b=>`زيادة ميزانية ${esc(a.name)} · ${esc(b.name)} من <span class="num">${nf(b.current)}</span> لـ <span class="num">${nf(b.recommended)}</span>/يوم`))];
+  const risks=A.flatMap(a=>a.actions.filter(x=>x.area==="anomaly").map(x=>`<b>${esc(a.name)}</b>: ${esc(x.title)} — ${esc(x.how)}`));
+  $("#p-ceo").innerHTML = `
+  <div class="grid g4">
+    <div class="card tile"><div class="label">الصرف · 7 أيام</div><div class="value">${money(P.spend7)}</div></div>
+    <div class="card tile"><div class="label">إيراد منسوب · 7 أيام</div><div class="value">${money(P.revenue7)}</div></div>
+    <div class="card tile"><div class="label">أكونتات سليمة</div><div class="value">${P.health.filter(h=>h.status==="good").length} / ${A.length}</div></div>
+    <div class="card tile"><div class="label">سيولة شحن · 7 أيام</div><div class="value">${money(P.treasury.total_need_next_7d)}</div></div>
+  </div>
+  <div class="tbl"><table><thead><tr><th>الأكونت</th><th>الصحة</th><th>CPR مقابل التارجت</th><th>الرصيد</th><th>توقع نهاية الشهر</th></tr></thead><tbody>
+  ${[...A].sort((x,y)=>x.health.score-y.health.score).map(a=>`<tr><td><b>${esc(a.name)}</b></td><td><span class="pill ${a.health.status}">${a.health.score}</span></td><td class="n">${a.health.cpr_ratio!=null?a.health.cpr_ratio.toFixed(2)+"×":"—"}</td><td>${walletPill(a.prepaid)}</td><td class="n">${money(a.forecast.month_end_spend,a.currency)} · ${nf(a.forecast.month_end_results)} ${RL[a.business.objective]}</td></tr>`).join("")}
+  </tbody></table></div>
+  <div class="grid g3">
+    <div class="card"><h3>قرارات مطلوبة</h3><ul class="why" style="font-size:13px;color:var(--ink)">${decisions.map(d=>`<li>${d}</li>`).join("")||"<li>مفيش</li>"}</ul></div>
+    <div class="card"><h3>المخاطر</h3><ul class="why" style="font-size:13px;color:var(--ink)">${risks.map(d=>`<li>${d}</li>`).join("")||"<li>مفيش مخاطر حرجة</li>"}</ul></div>
+    <div class="card"><h3>أعلى 5 أولويات</h3><ol style="margin:6px 0 0;padding-inline-start:18px;font-size:13px">${acts.slice(0,5).map(x=>`<li><span class="pill ${x.priority}">${x.priority}</span> <b>${esc(x.account)}</b> — ${esc(x.title)}</li>`).join("")}</ol></div>
+  </div>`;
+},
+team(){
+  const role=store.get("mb_role","all"), done=store.get("mb_done",{});
+  const acts=A.flatMap(a=>a.actions.map(x=>({...x,key:a.as_of+"|"+a.name+"|"+x.title}))).filter(x=>role==="all"||x.owner_role===role).sort((x,y)=>x.priority.localeCompare(y.priority)||y.ice-x.ice);
+  $("#p-team").innerHTML = `
+  <div class="chips" id="rc">${["all",...Object.keys(ROLE)].map(r=>`<button class="chip" data-r="${r}" aria-pressed="${r===role}">${r==="all"?"الكل":ROLE[r]}</button>`).join("")}</div>
+  <p class="faint" style="font-size:12px;margin:0">علامة "تم" بتتحفظ في المتصفح بتاعك بس.</p>
+  <div class="tbl"><table><thead><tr><th>تم</th><th>P</th><th>الأكونت</th><th>المهمة</th><th>إزاي</th><th>المسؤول</th><th>الأداة</th><th>الموعد</th><th>KPI</th><th>ICE</th></tr></thead><tbody>
+  ${acts.map(x=>`<tr style="${done[x.key]?"opacity:.45":""}"><td><input type="checkbox" id="d-${btoa(unescape(encodeURIComponent(x.key))).replace(/[^a-z0-9]/gi,"").slice(0,40)}" data-k="${esc(x.key)}" ${done[x.key]?"checked":""} aria-label="تم"></td><td><span class="pill ${x.priority}">${x.priority}</span></td><td>${esc(x.account)}</td><td><b>${esc(x.title)}</b></td><td style="min-width:220px">${esc(x.how)}</td><td>${esc(x.owner)}</td><td>${esc(x.tool)}</td><td>${esc(x.due)}</td><td>${esc(x.kpi)}</td><td class="n">${x.ice}</td></tr>`).join("")}
+  </tbody></table></div>`;
+  $("#rc").onclick=e=>{const b=e.target.closest(".chip"); if(!b) return; store.set("mb_role",b.dataset.r); render.team();};
+  $("#p-team").querySelectorAll("input[type=checkbox]").forEach(c=>c.onchange=()=>{const d=store.get("mb_done",{}); if(c.checked) d[c.dataset.k]=1; else delete d[c.dataset.k]; store.set("mb_done",d); render.team();});
+},
+road(){
+  const a=A[cur], r=a.roadmap;
+  $("#p-road").innerHTML = `${acctChips("rdc")}
+  <div class="row"><h2>${esc(a.name)}</h2><span class="pill P2">المرحلة الحالية: ${esc(r.current_phase||"—")}</span><span class="pill unknown">الإنجاز <span class="num">${nf(r.overall*100)}%</span></span></div>
+  <div class="grid g2">
+    <div class="card"><h3>المراحل</h3><div style="display:grid;gap:12px;margin-top:10px">${r.phases.map(p=>`<div class="phase"><span class="dot ${p.status}"></span><div>
+      <div class="row"><b>${esc(p.name)}</b><span class="spacer"></span><span class="faint num" style="font-size:12px">${p.done}/${p.total}</span></div>
+      <div class="meter"><i style="width:${p.pct*100}%;background:${p.status==="done"?"var(--good)":"var(--accent)"}"></i></div>
+      <div class="faint" style="font-size:12px;margin-top:4px">${p.tasks.map(t=>(t.done?"✓ ":"○ ")+esc(t.title)).join(" · ")}</div></div></div>`).join("")}</div></div>
+    <div class="card"><h3>اللي حصل في الأكونت</h3><ol class="tl" style="margin-top:10px">${[...r.events].reverse().map(e=>`<li class="${e.impact||""}"><span class="d">${esc(e.date)}</span> ${e.auto?'<span class="pill unknown">تلقائي</span>':""}<div>${esc(e.title)}</div>${e.detail?`<div class="faint" style="font-size:12px">${esc(e.detail)}</div>`:""}</li>`).join("")}</ol></div>
+  </div>
+  <div class="grid g3">
+    <div class="card stripe good"><h3>اللي نجح وأثّر إيجابي</h3><ul class="why" style="color:var(--ink)">${r.wins.map(e=>`<li>${esc(e.title)}</li>`).join("")||"<li>—</li>"}</ul></div>
+    <div class="card stripe critical"><h3>اللي أثّر بالسلب</h3><ul class="why" style="color:var(--ink)">${r.hurts.map(e=>`<li>${esc(e.title)}</li>`).join("")||"<li>—</li>"}</ul></div>
+    <div class="card"><h3>فاضل إيه</h3><ul class="why" style="color:var(--ink)">${r.remaining.map(e=>`<li>${esc(e)}</li>`).join("")||"<li>—</li>"}</ul></div>
+  </div>`;
+  wireChips("rdc", render.road);
+}};
+function actionsTable(acts){
+  if(!acts.length) return `<p class="empty">مفيش إجراء مطلوب.</p>`;
+  return `<div class="tbl"><table><thead><tr><th>P</th><th>القرار</th><th>ليه</th><th>إزاي</th><th>المسؤول</th><th>الموعد</th><th>ICE</th></tr></thead><tbody>${acts.map(x=>`<tr><td><span class="pill ${x.priority}">${x.priority}</span></td><td><b>${esc(x.title)}</b></td><td>${esc(x.why)}</td><td style="min-width:220px">${esc(x.how)}</td><td>${esc(x.owner)}</td><td>${esc(x.due)}</td><td class="n">${x.ice}</td></tr>`).join("")}</tbody></table></div>`;
+}
+function creativeTable(a){
+  return `<div class="tbl"><table><thead><tr><th>الإعلان</th><th>Format</th><th>Angle</th><th>Hook</th><th>صرف</th><th>نتائج</th><th>CPR</th><th>CTR</th><th>Hook rate</th><th>Freq 7d</th></tr></thead><tbody>${a.creatives.map(c=>`<tr><td style="font-size:12px">${esc(c.name)}</td><td>${esc(c.format)}</td><td>${esc(c.angle)}</td><td>${esc(c.hook)}</td><td class="n">${nf(c.spend)}</td><td class="n">${nf(c.results)}</td><td class="n" style="color:${c.cpr!=null&&c.cpr<=a.business.target_cpa?"var(--good)":"inherit"}">${nf(c.cpr)}</td><td class="n">${pct(c.ctr,2)}</td><td class="n">${pct(c.hook_rate,0)}</td><td class="n">${nf(c.freq7,1)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+cur = Math.min(store.get("mb_acct",0), A.length-1);
+const start = location.hash.slice(1);
+show(TABS.some(([k])=>k===start) ? start : store.get("mb_tab","cmd"));
+</script>
