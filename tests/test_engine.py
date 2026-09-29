@@ -162,3 +162,19 @@ class SalesMapping(unittest.TestCase):
         self.assertEqual(sum(r["revenue"] for r in rows), 11490)
         self.assertEqual(sum(r["orders"] for r in rows), 2)  # a return lowers revenue, not the invoice count
         self.assertEqual(rows[0]["source"], "showroom")
+
+
+class LeadTracker(unittest.TestCase):
+    def test_status_mapping(self):
+        import tempfile, pathlib
+        from mbos.engine import sales
+        f = pathlib.Path(tempfile.mkdtemp()) / "t.csv"
+        f.write_text("Date Received,Status,Deal Value (EGP)\n2026-09-01,Interested,\n2026-09-02,No Answer,\n"
+                     "2026-09-03,Won,650000\n", encoding="utf-8")
+        rows = sales.load({"file": str(f), "row_is_lead": True,
+                           "columns": {"date": "Date Received", "status": "Status", "revenue": "Deal Value (EGP)"},
+                           "qualified_statuses": ["Interested", "Quote Sent", "Won"], "won_statuses": ["Won"]})
+        self.assertEqual(sum(r["leads"] for r in rows), 3)
+        self.assertEqual(sum(r["qualified_leads"] for r in rows), 2)
+        self.assertEqual(sum(r["deals"] for r in rows), 1)
+        self.assertEqual(sum(r["revenue"] for r in rows), 650000)

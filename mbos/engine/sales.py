@@ -33,6 +33,9 @@ def load(spec):
           "row_is_order": true, "source": "showroom"},
          {"csv_url": "...", "columns": {"date": "التاريخ", "revenue": "الاجمالي"}, "sign": -1}
       ]}
+    A lead tracker (one lead per row): {"csv_url": "...", "row_is_lead": true,
+      "columns": {"date": "Date Received", "status": "Status", "revenue": "Deal Value (EGP)"},
+      "qualified_statuses": ["Interested", "Quote Sent", "Meeting Scheduled", "Won"], "won_statuses": ["Won"]}
     """
     if not spec:
         return []
@@ -83,6 +86,11 @@ def _load_one(sp):
                 row[k] = 0.0
         if sp.get("row_is_order") and row["revenue"]:
             row["orders"] = float(sign)
+        if sp.get("row_is_lead"):  # CRM-style sheet: one lead per row, progress in a status column
+            status = (row.get("status") or "").strip().lower()
+            row["leads"] = 1.0
+            row["qualified_leads"] = float(status in {x.lower() for x in sp.get("qualified_statuses", [])})
+            row["deals"] = float(status in {x.lower() for x in sp.get("won_statuses", [])})
         if sp.get("source") and not row.get("source"):
             row["source"] = sp["source"]
         rows.append(row)
