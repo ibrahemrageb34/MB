@@ -127,7 +127,7 @@ const money = (x, c="EGP") => x == null ? "—" : `${nf(x)} ${c}`;
 const pct = (x, d=1) => x == null ? "—" : `${(x*100).toFixed(d)}%`;
 const chg = (a,b) => (a==null||!b) ? null : (a-b)/b;
 const signed = x => x == null ? "—" : `${x>0?"+":""}${(x*100).toFixed(0)}%`;
-const RL = {purchase:"طلب", lead:"ليد", message:"محادثة"};
+const RL = {purchase:"طلب", lead:"ليد", message:"محادثة", install:"تثبيت", registration:"تسجيل", traffic:"زيارة", awareness:"وصول"};
 const ST = {good:"سليم", warning:"مراقبة", critical:"تدخل", ok:"آمن", debt:"مديونية", unknown:"غير معروف"};
 const VERD = {promote:["يستحق إعلان","good"], test:["اختبار صغير","warning"], skip:["عضوي فقط","unknown"], wait:["انتظار داتا","unknown"]};
 const TSTAT = {running:"شغال", winner:"كسب", loser:"خسر", inconclusive:"غير حاسم", not_started:"لم يبدأ", closed:"مقفول"};
@@ -205,6 +205,7 @@ cmd(){
   </div>
   <div class="section-h"><h2>P0 — قبل أي حاجة</h2><p>${P.p0.length} بند</p></div>
   ${P.p0.length?`<ul class="list">${P.p0.map(a=>`<li class="stripe P0"><div class="row"><b>${esc(a.account)}</b><span class="muted">${esc(a.title)}</span><span class="spacer"></span><span class="pill P0">${esc(a.owner)}</span></div><div class="faint" style="font-size:13px;margin-top:4px">${esc(a.how)}</div></li>`).join("")}</ul>`:`<p class="empty">مفيش P0 النهارده.</p>`}
+  ${brandsTable()}
   <div class="section-h"><h2>الأكونتات</h2><p>مرتبة من الأضعف · اضغط على الكارت للتفاصيل · الخط المتقطع = التارجت CPA</p></div>
   <div class="grid g3">${[...A].map((a,i)=>[a,i]).sort((x,y)=>x[0].health.score-y[0].health.score).map(([a,i])=>{
     const k=a.kpi.last7, p=a.kpi.prev7, tr=Object.entries(a.trend);
@@ -230,6 +231,7 @@ acct(){
   if (k.roas) kpis.push(["ROAS",nf(k.roas,2),chg(k.roas,p.roas)]);
   $("#p-acct").innerHTML = `${acctChips("ac")}
   <div class="row"><h2>${esc(a.name)}</h2><span class="pill ${a.health.status}">${ST[a.health.status]} · ${a.health.score}</span>${walletPill(a.prepaid)}<span class="spacer"></span><span class="faint">${esc(a.owner||"")}</span></div>
+  ${a.assumptions&&a.assumptions.length?`<div class="note"><b>افتراضات لازم تتأكد:</b><ul class="why" style="color:var(--ink);margin-top:4px">${a.assumptions.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}
   <div class="grid g4">${kpis.map(([l,v,ch])=>`<div class="card tile"><div class="label">${l} · 7 أيام</div><div class="value">${v}</div><div class="sub">مقابل الأسبوع اللي قبله <span class="num">${signed(ch)}</span></div></div>`).join("")}</div>
   <div class="grid g2">
     <div class="card"><h3>CPR يومي · 30 يوم</h3><div class="chart" id="ch-cpr"></div></div>
@@ -326,6 +328,7 @@ ceo(){
     <div class="card tile"><div class="label">أكونتات سليمة</div><div class="value">${P.health.filter(h=>h.status==="good").length} / ${A.length}</div></div>
     <div class="card tile"><div class="label">سيولة شحن · 7 أيام</div><div class="value">${money(P.treasury.total_need_next_7d)}</div></div>
   </div>
+  ${brandsTable()}
   <div class="tbl"><table><thead><tr><th>الأكونت</th><th>الصحة</th><th>CPR مقابل التارجت</th><th>الرصيد</th><th>توقع نهاية الشهر</th></tr></thead><tbody>
   ${[...A].sort((x,y)=>x.health.score-y.health.score).map(a=>`<tr><td><b>${esc(a.name)}</b></td><td><span class="pill ${a.health.status}">${a.health.score}</span></td><td class="n">${a.health.cpr_ratio!=null?a.health.cpr_ratio.toFixed(2)+"×":"—"}</td><td>${walletPill(a.prepaid)}</td><td class="n">${money(a.forecast.month_end_spend,a.currency)} · ${nf(a.forecast.month_end_results)} ${RL[a.business.objective]}</td></tr>`).join("")}
   </tbody></table></div>
@@ -365,6 +368,16 @@ road(){
   </div>`;
   wireChips("rdc", render.road);
 }};
+function brandsTable(){
+  const B=P.brands||[]; if(!B.length) return "";
+  return `<div class="section-h"><h2>البراندات · النتيجة الحقيقية</h2><p>من شيت المبيعات (المعرض، واتساب، الموقع) مقابل كل الصرف الإعلاني للبراند</p></div>
+  <div class="tbl"><table><thead><tr><th>البراند</th><th>صرف الشهر</th><th>مبيعات الشهر</th><th>MER</th><th>التارجت</th><th>ليدز مؤهلة</th><th>تكلفة الليد المؤهل</th><th>صفقات</th><th>آخر تحديث للشيت</th></tr></thead><tbody>
+  ${B.map(b=>{const s=b.sales, t=b.targets||{};
+    if(!s.connected) return `<tr><td><b>${esc(b.brand)}</b><div class="faint" style="font-size:12px">${b.lanes.map(l=>esc(l.name)).join(" · ")}</div></td><td colspan="8"><span class="pill warning">شيت المبيعات مش متوصّل</span> <span class="faint">${s.error?esc(s.error):"من غيره مفيش ROAS حقيقي للمعرض والواتساب"}</span></td></tr>`;
+    const m=s.mtd, merOk=t.target_mer&&m.mer!=null?(m.mer>=t.target_mer?"good":"critical"):"unknown";
+    return `<tr><td><b>${esc(b.brand)}</b></td><td class="n">${money(m.spend)}</td><td class="n">${money(m.revenue)}</td><td><span class="pill ${merOk}">${m.mer!=null?nf(m.mer,1)+"×":"—"}</span></td><td class="n">${t.target_mer?nf(t.target_mer)+"×":"—"}${t.monthly_sales?`<div class="faint">${money(t.monthly_sales)}</div>`:""}</td><td class="n">${nf(m.qualified_leads)}</td><td class="n">${money(m.cpql)}</td><td class="n">${nf(m.deals)}</td><td>${s.stale_days>2?`<span class="pill warning">من ${s.stale_days} يوم</span>`:`<span class="num faint">${esc(s.last_entry)}</span>`}</td></tr>`}).join("")}
+  </tbody></table></div>`;
+}
 function actionsTable(acts){
   if(!acts.length) return `<p class="empty">مفيش إجراء مطلوب.</p>`;
   return `<div class="tbl"><table><thead><tr><th>P</th><th>القرار</th><th>ليه</th><th>إزاي</th><th>المسؤول</th><th>الموعد</th><th>ICE</th></tr></thead><tbody>${acts.map(x=>`<tr><td><span class="pill ${x.priority}">${x.priority}</span></td><td><b>${esc(x.title)}</b></td><td>${esc(x.why)}</td><td style="min-width:220px">${esc(x.how)}</td><td>${esc(x.owner)}</td><td>${esc(x.due)}</td><td class="n">${x.ice}</td></tr>`).join("")}</tbody></table></div>`;

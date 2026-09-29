@@ -44,5 +44,5 @@
     "telegram_chat_id_env": "TELEGRAM_CHAT_ID",
     "webhook_url_env": "MBOS_WEBHOOK_URL"
   },
-  "ai": {"enabled": true, "model": "claude-opus-5-5", "api_key_env": "ANTHROPIC_API_KEY"}
+  "ai": {"enabled": true, "model": "claude-opus-5-5", "api_key_env": "ANTHROPIC_API_KEY", "max_tag_per_run": 40}
 }

@@ -59,6 +59,17 @@ def ceo(results, portfolio):
         out.append(f"| {r['name']} | {r['health']['score']} {STATUS_AR[r['health']['status']].split()[0]} | {money(k7['cpr'], cur)} | "
                    f"{(r['health']['cpr_ratio'] or 0):.2f}× | {WALLET_AR.get(w.get('status'), '')} {rd} | "
                    f"{money(r['forecast']['month_end_spend'], cur)} صرف / {num(r['forecast']['month_end_results'])} نتيجة |")
+    if portfolio.get("brands"):
+        out += ["", "## البراندات — النتيجة الحقيقية (شيت المبيعات)", "",
+                "| البراند | صرف الشهر | مبيعات الشهر | MER | التارجت | تكلفة الليد المؤهل |", "|---|---|---|---|---|---|"]
+        for b in portfolio["brands"]:
+            s, t = b["sales"], b["targets"] or {}
+            if not s.get("connected"):
+                out.append(f"| {b['brand']} | — | ⚠️ شيت المبيعات مش متوصّل | — | {t.get('target_mer', '—')} | — |")
+                continue
+            m = s["mtd"]
+            out.append(f"| {b['brand']} | {money(m['spend'])} | {money(m['revenue'])} | "
+                       f"{(m['mer'] or 0):.1f}× | {t.get('target_mer', '—')}× | {money(m['cpql'])} |")
     out += ["", "## قرارات مطلوبة من الإدارة", ""]
     decisions = []
     for t in portfolio["treasury"]["rows"]:

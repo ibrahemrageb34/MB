@@ -1,5 +1,10 @@
 output/
 __pycache__/
 *.pyc
-config/accounts.json
 .env
+# client data never goes to the (public) repo — only the EXAMPLE/TEMPLATE files do
+config/accounts.json
+config/settings.local.json
+data/*/*
+!data/*/EXAMPLE.json
+!data/*/TEMPLATE.csv

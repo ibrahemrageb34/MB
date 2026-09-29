@@ -6,10 +6,12 @@ from collections import defaultdict
 from ..util import d, div
 
 BASE = ["spend", "impressions", "reach", "clicks", "lpv", "atc", "ic", "purchases",
-        "revenue", "leads", "messages", "video_3s", "thruplay"]
+        "revenue", "leads", "messages", "video_3s", "thruplay", "installs", "registrations"]
 
-RESULT_KEY = {"purchase": "purchases", "lead": "leads", "message": "messages"}
-RESULT_LABEL = {"purchase": "طلب", "lead": "ليد", "message": "محادثة"}
+RESULT_KEY = {"purchase": "purchases", "lead": "leads", "message": "messages", "install": "installs",
+              "registration": "registrations", "traffic": "lpv", "awareness": "reach"}
+RESULT_LABEL = {"purchase": "طلب", "lead": "ليد", "message": "محادثة", "install": "تثبيت",
+                "registration": "تسجيل", "traffic": "زيارة", "awareness": "وصول"}
 
 
 def result_key(objective: str) -> str:

@@ -38,7 +38,7 @@ def ad_table(bundle, days=14):
     out = []
     for ad_id, m in by_ad.items():
         a = ads.get(ad_id, {"name": ad_id})
-        tags = parse_tags(a.get("name", ""))
+        tags = {**(a.get("ai_tags") or {}), **parse_tags(a.get("name", ""))}
         tags.setdefault("format", a.get("format", "Unknown"))
         tags.setdefault("angle", "Untagged")
         tags.setdefault("hook", "Untagged")

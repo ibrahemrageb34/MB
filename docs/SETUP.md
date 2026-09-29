@@ -12,6 +12,18 @@
 
 System user token مش بيخلص زي توكن المستخدم، ومش مربوط بحساب شخص ممكن يسيب الشغل.
 
+### الأكونتات موزعة على أكتر من Business Manager
+
+**الحل الأفضل: Business Manager واحد بتاعك، والباقيين يعملوه Partner.**
+1. اعمل (أو استخدم) Business Manager باسمك/باسم شغلك.
+2. كل صاحب BM (الإيجنسي أو العميل) يدخل: Business Settings → **Partners** → Add → يحط **Business ID** بتاعك → يشارك الأد أكونت (Manage campaigns + View performance + **Manage billing** عشان الرصيد) + الصفحة + حساب الإنستجرام.
+3. في الـ BM بتاعك: System User واحد، وتعمله Assign على كل الأصول اللي اتشاركت.
+4. توكن واحد يغطي الكل. حطه في `META_TOKEN_BM1` و`META_TOKEN_BM2` و`META_TOKEN_BM3` كلهم (نفس القيمة).
+
+**لو صاحب BM رفض المشاركة:** اعمل System User جوه الـ BM بتاعه (لازم تكون Admin فيه) وخد توكن منفصل. كل أكونت في `accounts.json` فيه `token_env` بيحدد يستخدم أنهي توكن.
+
+**الرصيد:** قراءة رصيد الدفع المسبق محتاجة صلاحية على الـ Billing. لو مش متاحة، حط `prepaid.manual_balance` في الأكونت وحدّثه بعد كل شحن.
+
 ## 2. الأكونتات
 
 `cp config/accounts.example.json config/accounts.json` — لكل أكونت:
@@ -24,7 +36,10 @@ System user token مش بيخلص زي توكن المستخدم، ومش مرب
 | `business.target_cpa` | **أهم رقم في السيستم.** للإيكومرس: AOV × الهامش × النسبة اللي تقبل تصرفها على الاستحواذ |
 | `business.gross_margin` | عشان break-even ROAS = 1 ÷ الهامش |
 | `business.monthly_budget` | الـ pacing والـ forecast |
-| `ig_user_id` / `page_id` | تقييم البوستات الجديدة |
+| `facebook_page` | لينك الصفحة. السيستم بيجيب منه الـ Page ID وحساب الإنستجرام المربوط لوحده |
+| `lanes` | الأكونت ممكن يشتغل على أكتر من هدف (رسايل + مبيعات موقع). كل lane بتارجت منفصل. الكامبين بتتوزع حسب الـ optimization بتاعها، أو بكلمة في اسمها (`keywords`) |
+| `brand_targets` | أهداف البراند الحقيقية: `monthly_sales`, `target_mer`, `target_cpql` |
+| `token_env` | أنهي توكن (لو الأكونتات في أكتر من Business Manager) |
 | `team` | أسماء المسؤولين (بتظهر في Team Layer) |
 | `tracking.emq` | Event Match Quality من Events Manager (لحد ما يتربط أوتوماتيك) |
 | `prepaid.manual_balance` | لو الرصيد مش بيتقري من الـ API |
@@ -41,9 +56,38 @@ System user token مش بيخلص زي توكن المستخدم، ومش مرب
 - **n8n:** Import الملفات من `n8n/`. عدّل المسار `/opt/MB`. نود Execute Command متقفلة افتراضياً في الإصدارات الجديدة من n8n (self-hosted بس) — لازم تسمح بيها في إعدادات السيرفر، أو استخدم cron.
 - **cron:** `n8n/crontab.example`.
 
+## 4.1 الرفع على هوست
+
+**لازم يكون VPS (Ubuntu) مش استضافة مواقع عادية:** السيستم محتاج Python و cron، وأغلب استضافات cPanel بتقفل ده أو بتحدّه.
+
+```bash
+sudo apt update && sudo apt install -y python3 git
+sudo git clone https://github.com/ibrahemrageb34/MB.git /opt/MB && cd /opt/MB
+# ارفع config/accounts.json (مش موجود في الريبو) من جهازك:
+#   scp config/accounts.json user@SERVER:/opt/MB/config/
+cp deploy/env.example .env && chmod 600 .env && nano .env      # التوكنز هنا فقط
+python3 -m mbos run --no-notify                                  # أول تجربة
+crontab n8n/crontab.example                                      # الجدولة
+```
+
+الداشبورد فيه أرقام العملاء: متحطوش على لينك مفتوح. `deploy/nginx-dashboard.conf` بيحميه بباسورد.
+
+⚠️ **الريبو ده Public على GitHub.** عشان كده `accounts.json` والتوكنز وأي داتا عملاء في `data/` متجاهلين في `.gitignore` ومش بيترفعوا. الأحسن تخلي الريبو Private: Settings → General → Danger Zone → Change visibility.
+
+## 4.2 شيت المبيعات (عشان ROAS حقيقي للمعرض والواتساب)
+
+ميتا مش شايفة المبيعات اللي بتحصل في المعرض أو على الواتساب. من غير الشيت، أقصى حاجة السيستم يقولها: "تكلفة المحادثة كام"، مش "المحادثة جابت فلوس كام".
+
+1. Google Sheet لكل براند بالأعمدة اللي في `data/sales/TEMPLATE.csv`: `date, source, orders, revenue, leads, qualified_leads, deals, notes`.
+2. `source`: showroom / whatsapp / messenger / website / walk_in / other.
+3. File → Share → **Publish to web** → الشيت → **CSV** → انسخ اللينك.
+4. في `accounts.json`: `"sales_log": {"csv_url": "اللينك"}`.
+5. حد من الفريق يسجّل كل يوم (دقيقتين).
+6. لينك Publish to web مش متخمّن بس أي حد معاه يقدر يفتحه. لو الأرقام حساسة: نزّل الشيت CSV على السيرفر واستخدم `"sales_log": {"file": "data/sales/CODE.csv"}` بدل اللينك. السيستم بينبّه لو الشيت متحدّثش من أكتر من يومين.
+
 ## 5. Claude (اختياري)
 
-`export ANTHROPIC_API_KEY=...` — التحليل النوعي للبوستات الجديدة بيشتغل لوحده. الموديل في `config/settings.json → ai.model`. لو المفتاح مش موجود السيستم بيشتغل بالقواعد بس.
+`ANTHROPIC_API_KEY` في `.env` بيشغّل حاجتين: (1) تحليل كل بوست جديد (الهوك، الزاوية، العرض، الاعتراضات)، (2) **تصنيف الإعلانات اللي مش متسمية بالـ naming convention** (Angle / Format / Hook / Offer) من نص الإعلان، والنتيجة بتتحفظ في `data/tags/` عشان كل إعلان يتصنف مرة واحدة بس. الموديل في `config/settings.json → ai.model`. لو المفتاح مش موجود السيستم بيشتغل بالقواعد بس.
 
 ## 6. بديل من غير كود للداتا
 

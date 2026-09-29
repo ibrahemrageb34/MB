@@ -8,6 +8,7 @@ import datetime as dt
 import math
 import random
 
+from ..engine.metrics import result_key
 from ..util import today
 
 SCENARIOS = ["healthy", "fatigue", "cpm_spike", "debt", "runway_critical", "tracking_break", "policy"]
@@ -30,7 +31,8 @@ def build(account, idx, days=35):
     rng = random.Random(1000 + idx)
     scen = account.get("demo_scenario") or SCENARIOS[idx % len(SCENARIOS)]
     biz = account["business"]
-    obj, target, aov = biz["objective"], biz["target_cpa"], biz.get("aov") or 0
+    obj, aov = biz["objective"], biz.get("aov") or 0
+    target = biz.get("target_cpa") or 100
     code = account["code"]
     end = today() - dt.timedelta(days=1)
     start = end - dt.timedelta(days=days - 1)
@@ -42,8 +44,8 @@ def build(account, idx, days=35):
     hooks = ["Question", "Bold", "Result", "POV", "Price"]
 
     campaigns, adsets, ads, plan = [], [], [], []
-    scale_budget = biz.get("monthly_budget", 60000) / 30 * 0.7
-    camps = [("SCALE_CBO_" + {"purchase": "Purchase", "lead": "Leads", "message": "Messages"}[obj] + "_Broad", "scaling", scale_budget),
+    scale_budget = (biz.get("monthly_budget") or 60000) / 30 * 0.7
+    camps = [("SCALE_CBO_" + obj.title() + "_Broad", "scaling", scale_budget),
              ("TEST_ABO_Creative", "testing", None)]
     if obj == "purchase":
         camps.append(("RT_CBO_Purchase_30D", "retargeting", scale_budget * 0.2))
@@ -122,7 +124,7 @@ def build(account, idx, days=35):
                      "reach": round(imps / rng.uniform(1.1, 1.5)), "clicks": clicks, "lpv": round(clicks * rng.uniform(0.6, 0.85)),
                      "atc": 0, "ic": 0, "purchases": 0, "revenue": 0, "leads": 0, "messages": 0,
                      "video_3s": round(imps * p["hook"]), "thruplay": round(imps * p["hook"] * rng.uniform(0.2, 0.45))}
-                key = {"purchase": "purchases", "lead": "leads", "message": "messages"}[obj]
+                key = result_key(obj)
                 r[key] = res
                 if obj == "purchase":
                     r["revenue"] = round(res * aov * rng.uniform(0.85, 1.2), 2)

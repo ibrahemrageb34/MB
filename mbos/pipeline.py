@@ -2,15 +2,46 @@
 the dashboard, the CEO/Team reports, the 10-minute breakdown and the alerts."""
 from __future__ import annotations
 
-from . import ai
+from . import ai, lanes
 from .engine import (anomaly, budget, cleaning, competitor, creative, forecast, metrics as M,
-                     prepaid, qa, roadmap, testing)
-from .util import ROOT, clamp, d, div, load_json, slug
+                     prepaid, qa, roadmap, sales, testing)
+from .util import ROOT, clamp, d, div, load_json, parse_tags, save_json, slug
 
 PRIO = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
 
 
-def analyze_account(bundle, cfg, persist_journal=False):
+def analyze_bundle(bundle, cfg, persist=False):
+    """One ad account -> one result per lane. The prepaid wallet belongs to the ad
+    account, so it is computed once on the whole account and shared by its lanes."""
+    bundle = cleaning.clean(bundle, cfg)
+    if ai.enabled(cfg):
+        _ai_tags(bundle, cfg, persist)
+    wallet = prepaid.analyze(bundle, cfg)
+    out = []
+    for lane in lanes.split(bundle):
+        r = analyze_account(lane, cfg, persist_journal=persist and lane["primary_lane"], wallet=wallet)
+        r["lane_share"] = lanes.lane_share(lane, bundle)
+        out.append(r)
+    return out
+
+
+def _ai_tags(bundle, cfg, persist):
+    """Fill angle/format/hook for ads whose names carry no tags (cached per ad id)."""
+    code = bundle["account"].get("code") or slug(bundle["account"]["name"])
+    path = ROOT / "data/tags" / f"{code}.json"
+    cache = load_json(path, {})
+    todo = [a for a in bundle["ads"] if a["id"] not in cache and a.get("text")
+            and not parse_tags(a.get("name", "")).get("angle")]
+    if todo:
+        cache.update(ai.tag_ads(cfg, bundle["account"], todo[:cfg["ai"].get("max_tag_per_run", 40)]))
+        if persist:
+            save_json(path, cache)
+    for a in bundle["ads"]:
+        if a["id"] in cache:
+            a["ai_tags"] = cache[a["id"]]
+
+
+def analyze_account(bundle, cfg, persist_journal=False, wallet=None):
     acc = bundle["account"]
     biz = acc["business"]
     obj, target = biz["objective"], biz["target_cpa"]
@@ -26,11 +57,12 @@ def analyze_account(bundle, cfg, persist_journal=False):
     k7 = M.total(M.window(bundle["rows"], end, 7), obj)
     kprev = M.total(M.window(bundle["rows"], end.fromordinal(end.toordinal() - 7), 7), obj)
     ky = M.total(M.window(bundle["rows"], end, 1), obj)
-    trend = M.daily(M.window(bundle["rows"], end, 30), obj)
+    trend = M.daily(M.window(bundle["rows"], end, max(30, end.day)), obj)
 
     anomalies = anomaly.detect(bundle, cfg)
     issues = qa.check(bundle, cfg)
-    wallet = prepaid.analyze(bundle, cfg)
+    wallet = wallet or prepaid.analyze(bundle, cfg)
+    primary = bundle.get("primary_lane", True)
     crit = next((a for a in anomalies if a["severity"] == "critical" and a["level"] == "account"), None)
     budgets = budget.recommend(bundle, cfg, wallet, f"فيه anomaly حرجة امبارح ({crit['metric_ar']})" if crit else None)
     pace = budget.pacing(bundle)
@@ -50,11 +82,14 @@ def analyze_account(bundle, cfg, persist_journal=False):
     if persist_journal:
         roadmap.save(jpath, journal)
 
-    actions = build_actions(acc, cfg, k7, anomalies, issues, wallet, budgets, fat, posts, tests)
+    actions = build_actions(acc, cfg, k7, anomalies, issues, wallet if primary else {}, budgets, fat, posts, tests)
     health = health_score(k7, target, obj, biz, wallet, anomalies, issues, fat)
 
     return {
         "key": key, "name": acc["name"], "owner": acc.get("owner"), "team": acc.get("team", {}),
+        "brand": acc.get("brand") or acc["name"], "lane": acc.get("lane", ""), "primary": primary,
+        "account_id": acc.get("id"), "assumptions": acc.get("assumptions", []),
+        "sales_log": acc.get("sales_log"), "brand_targets": acc.get("brand_targets"),
         "platform": acc.get("platform", "meta"), "currency": bundle["info"].get("currency", "EGP"),
         "business": biz, "as_of": str(end), "health": health,
         "kpi": {"yesterday": ky, "last7": k7, "prev7": kprev}, "trend": trend,
@@ -157,13 +192,34 @@ def portfolio(results, cfg):
     for r in results:
         tot7["spend"] += r["kpi"]["last7"]["spend"]
         tot7["revenue"] += r["kpi"]["last7"]["revenue"]
-    wallets = {r["name"]: r["prepaid"] for r in results}
+    wallets = {r["name"]: r["prepaid"] for r in results if r.get("primary", True)}
     alerts = []
     for r in results:
         for a in r["actions"]:
             if a["priority"] == "P0":
                 alerts.append({"account": r["name"], **a})
     return {"spend7": tot7["spend"], "revenue7": tot7["revenue"],
+            "brands": brands(results),
             "treasury": prepaid.treasury(wallets),
             "health": sorted([{"name": r["name"], **r["health"]} for r in results], key=lambda x: x["score"]),
             "p0": alerts}
+
+
+def brands(results):
+    """Brand-level view: all lanes and ad accounts of a brand + its sales log."""
+    out = {}
+    for r in results:
+        b = out.setdefault(r["brand"], {"brand": r["brand"], "lanes": [], "spend_by_day": {}, "spend7": 0.0,
+                                         "sales_log": None, "targets": None, "as_of": r["as_of"]})
+        b["lanes"].append({"name": r["name"], "health": r["health"]["score"], "status": r["health"]["status"]})
+        b["spend7"] += r["kpi"]["last7"]["spend"]
+        for day, m in r["trend"].items():
+            b["spend_by_day"][day] = b["spend_by_day"].get(day, 0.0) + m["spend"]
+        b["sales_log"] = b["sales_log"] or r.get("sales_log")
+        b["targets"] = b["targets"] or r.get("brand_targets")
+    rows = []
+    for b in out.values():
+        s = sales.summarize(sales.load(b["sales_log"]), b["spend_by_day"], b["as_of"], b["targets"])
+        rows.append({"brand": b["brand"], "lanes": b["lanes"], "spend7": b["spend7"], "sales": s,
+                     "targets": b["targets"] or {}})
+    return rows

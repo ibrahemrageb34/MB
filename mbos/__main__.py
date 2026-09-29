@@ -10,12 +10,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
 from . import notify, pipeline, reports
 from .dashboard import build as build_dashboard
 from .util import ROOT, load_json, save_json
+
+
+def load_env():
+    """KEY=VALUE lines from .env (server secrets); real environment variables win."""
+    p = ROOT / ".env"
+    if p.exists():
+        for line in p.read_text(encoding="utf-8").splitlines():
+            if "=" in line and not line.lstrip().startswith("#"):
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 
 def load_cfg():
@@ -45,15 +56,17 @@ def collect(args, cfg):
         bundles = [demo.build(a, i) for i, a in enumerate(accounts)]
     else:
         from .connectors.meta import MetaAPI
-        api = MetaAPI(cfg)
+        apis = {}
         for a in accounts:
             if a.get("platform", "meta") != "meta":
                 continue
             try:
-                bundles.append(api.fetch(a, days=days))
+                env = a.get("token_env") or cfg["meta"]["access_token_env"]  # one token per Business Manager
+                apis.setdefault(env, MetaAPI(cfg, env))
+                bundles.append(apis[env].fetch(a, days=days))
             except Exception as e:  # one broken account must not block the other six
                 print(f"[{a['name']}] fetch failed: {e}", file=sys.stderr)
-    results = [pipeline.analyze_account(b, cfg, persist_journal=not args.demo) for b in bundles]
+    results = [r for b in bundles for r in pipeline.analyze_bundle(b, cfg, persist=not args.demo)]
     return results, pipeline.portfolio(results, cfg)
 
 
@@ -81,6 +94,7 @@ def main(argv=None):
         if name == "apply-spend-caps":
             p.add_argument("--yes", action="store_true")
     args = ap.parse_args(argv)
+    load_env()
     cfg = load_cfg()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -109,17 +123,19 @@ def main(argv=None):
             notify.webhook(cfg, {"type": f"alert_{args.kind}", "text": text})
 
     elif args.cmd == "apply-spend-caps":
-        plan = [(r["name"], r["key"], r["prepaid"].get("spend_cap_recommended")) for r in results]
+        plan = [(r["name"], r["key"], r["prepaid"].get("spend_cap_recommended")) for r in results if r["primary"]]
         print(json.dumps(plan, ensure_ascii=False, indent=1))
         if args.demo or not args.yes:
             print("Dry run. Re-run without --demo and with --yes to write spending limits to Meta.")
             return
         from .connectors.meta import MetaAPI
-        api = MetaAPI(cfg)
         accounts = {a.get("code"): a for a in load_accounts(False)}
         for name, key, cap in plan:
-            if cap:
-                print(name, api.set_spend_cap(accounts[key]["id"], cap))
+            a = accounts.get(key)
+            if cap and a:
+                api = MetaAPI(cfg, a.get("token_env"))
+                act = a["id"] if a["id"].startswith("act_") else f"act_{a['id']}"
+                print(name, api.set_spend_cap(act, cap))
 
 
 if __name__ == "__main__":

@@ -110,3 +110,38 @@ class SearchTerms(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Lanes(unittest.TestCase):
+    def test_split_by_keyword_and_shared_wallet(self):
+        import copy
+        from mbos import lanes
+        from mbos.pipeline import analyze_bundle
+        acc = copy.deepcopy(ACCOUNTS[0])
+        acc["lanes"] = [{"name": "بيع", "objective": "purchase", "target_cpa": 170},
+                        {"name": "ريتارجت", "objective": "purchase", "keywords": ["_RT_"]}]
+        b = demo.build(acc, 0)
+        parts = lanes.split(b)
+        self.assertEqual([p["account"]["lane"] for p in parts], ["بيع", "ريتارجت"])
+        self.assertTrue(all("_RT_" in c["name"] for c in parts[1]["campaigns"]))
+        # a lane without target is judged against its own 30-day average, and says so
+        self.assertTrue(parts[1]["account"]["assumptions"])
+        res = analyze_bundle(demo.build(acc, 0), CFG)
+        self.assertEqual(len(res), 2)
+        self.assertEqual(res[0]["prepaid"]["balance"], res[1]["prepaid"]["balance"])
+        self.assertFalse(any(a["area"] == "prepaid" for a in res[1]["actions"]))
+
+
+class Sales(unittest.TestCase):
+    def test_mer_and_cpql(self):
+        from mbos.engine import sales
+        rows = [{"date": "2026-09-20", "source": "showroom", "orders": 3, "revenue": 90000, "leads": 40,
+                 "qualified_leads": 10, "deals": 2},
+                {"date": "2026-09-27", "source": "whatsapp", "orders": 2, "revenue": 30000, "leads": 20,
+                 "qualified_leads": 5, "deals": 1}]
+        spend = {"2026-09-20": 3000.0, "2026-09-27": 3000.0}
+        s = sales.summarize(rows, spend, "2026-09-28", {"monthly_sales": 600000})
+        self.assertEqual(s["mtd"]["mer"], 20)
+        self.assertEqual(s["mtd"]["cpql"], 400)
+        self.assertEqual(s["last7"]["revenue"], 30000)
+        self.assertEqual(s["by_source"]["showroom"]["revenue"], 90000)
