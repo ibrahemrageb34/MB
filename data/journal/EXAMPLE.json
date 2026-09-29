@@ -1,0 +1,12 @@
+{
+  "phases": [
+    {"name": "Onboarding & Business Truth", "status": "done", "start": "2026-07-01", "end": "2026-07-10",
+     "tasks": [{"title": "اقتصاديات المنتج (AOV/Margin/CAC)", "done": true}]},
+    {"name": "Tracking Foundation", "status": "active", "start": "2026-07-10",
+     "tasks": [{"title": "Pixel + CAPI", "done": true}, {"title": "Event Match Quality ≥ 7", "done": false}]}
+  ],
+  "events": [
+    {"date": "2026-07-15", "type": "decision", "impact": "positive", "title": "تفعيل CAPI — EMQ من 4.1 لـ 7.2",
+     "detail": "Shopify CAPI integration"}
+  ]
+}

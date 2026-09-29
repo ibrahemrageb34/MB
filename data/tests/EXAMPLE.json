@@ -1,0 +1,6 @@
+[
+  {"id": "T001", "start": "2026-10-01", "status": "open",
+   "hypothesis": "هوك بسؤال مباشر عن المشكلة هيرفع CTR ويقلل CPR مقارنة بالهوك العام",
+   "variable": "Hook", "angle": "Pain", "format": "UGC", "audience": "Broad", "primary_kpi": "CPR",
+   "success": "CPR ≤ 0.9× التارجت مع ≥ 5 نتائج", "failure": "صرف 2× التارجت بدون نتيجة", "owner": "creative"}
+]

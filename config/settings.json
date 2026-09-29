@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "api_version": "v24.0",
+    "access_token_env": "META_ACCESS_TOKEN",
+    "attribution_windows": ["7d_click", "1d_view"],
+    "currency_minor_unit": 100
+  },
+  "thresholds": {
+    "anomaly": {"z_warning": 2.0, "z_critical": 3.0, "pct_warning": 0.25, "pct_critical": 0.4,
+                "min_daily_spend": 300, "tracking_min_daily_results": 5,
+                "min_daily_results_for_rates": 5},
+    "min_budget_x_cpa": 1.0,
+    "max_active_ads_per_adset": 6,
+    "max_frequency_prospecting": 3.5,
+    "kill_spend_x_cpa": 2.0,
+    "min_emq": 6.0,
+    "fatigue_ctr_drop": 0.3,
+    "fatigue_min_frequency": 3.0,
+    "min_spend_x_cpa_for_verdict": 1.5
+  },
+  "budget_rules": {
+    "scale_ratio": 0.85, "cut_ratio": 1.25, "pause_ratio": 1.8,
+    "scale_step": 0.2, "cut_step": 0.2,
+    "min_spend_x_cpa": 3, "min_results_to_scale": 10
+  },
+  "prepaid": {"critical_days": 1.5, "warning_days": 3, "target_cover_days": 7,
+              "lead_time_days": 1, "spend_cap_buffer_days": 0.5},
+  "testing": {"min_results_win": 5, "win_ratio": 0.9, "lose_ratio": 1.5,
+              "kill_spend_x_cpa": 2.0, "decision_spend_x_cpa": 3.0, "max_days": 10},
+  "post_triage": {"new_post_hours": 48, "min_hours_for_verdict": 12, "min_reach": 1500,
+                  "promote_score": 75, "test_score": 50, "test_budget_x_cpa": 1.5, "kill_spend_x_cpa": 2.0},
+  "creative": {"formats": ["UGC", "Static", "Carousel", "Video", "Founder", "Demo", "Testimonial"]},
+  "naming": {"campaign_regex": "^[A-Z0-9]+_(SCALE|TEST|RT|PROS)_"},
+  "cleaning": {"exclude_campaign_keywords": ["[old]", "do not use"]},
+  "roles": {
+    "media_buyer": {"title": "Media Buyer", "tool": "Ads Manager"},
+    "creative": {"title": "Creative Strategist", "tool": "Brief + Canva/CapCut"},
+    "tracking": {"title": "Tracking Specialist", "tool": "Events Manager / GTM / CAPI"},
+    "finance": {"title": "Account Manager / Finance", "tool": "Billing & Payments"},
+    "account_manager": {"title": "Account Manager", "tool": "WhatsApp/Email"}
+  },
+  "notifications": {
+    "telegram_bot_token_env": "TELEGRAM_BOT_TOKEN",
+    "telegram_chat_id_env": "TELEGRAM_CHAT_ID",
+    "webhook_url_env": "MBOS_WEBHOOK_URL"
+  },
+  "ai": {"enabled": true, "model": "claude-opus-5-5", "api_key_env": "ANTHROPIC_API_KEY", "max_tag_per_run": 40}
+}
